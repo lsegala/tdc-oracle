@@ -79,3 +79,28 @@ modificar o service de ClusterIP para LoadBalancer
 ```
   type: LoadBalancer 
 ```
+
+adicionar o arquivo build_spec.yaml
+```
+version: 0.1
+component: build
+timeoutInSeconds: 6000
+shell: bash
+
+steps:
+  - type: Command
+    name: "Build Source"
+    timeoutInSeconds: 4000
+    command: |
+      mvn clean install
+  - type: Command
+    timeoutInSeconds: 400
+    name: "Dockerizer"
+    command: |
+      docker build -t <caminho repositório>:<tag> .
+
+outputArtifacts:
+  - name: <nome artefato>
+    type: DOCKER_IMAGE
+    location: <caminho repositório>:<tag> 
+```
