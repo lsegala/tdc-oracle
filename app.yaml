@@ -21,7 +21,7 @@ metadata:
   labels:
     app: helidon-quickstart-mp
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: helidon-quickstart-mp
   ports:
@@ -29,12 +29,31 @@ spec:
     targetPort: 8080
     name: http
 ---
+apiVersion: v1
+data:
+  javax.sql.DataSource.helloDataSource.dataSource.url: "jdbc:postgresql://banco-hello-postgresql:5432/hello"
+  javax.sql.DataSource.helloDataSource.dataSource.user: "postgres"
+kind: ConfigMap
+metadata:
+  name: hello-config
+---
+apiVersion: v1
+data:
+  javax.sql.DataSource.helloDataSource.dataSource.password: cG9zdGdyZXMK
+kind: Secret
+metadata:
+  name: hello-secret
+type: Opaque
+---
 kind: Deployment
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 metadata:
   name: helidon-quickstart-mp
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helidon-quickstart-mp
   template:
     metadata:
       labels:
@@ -42,9 +61,18 @@ spec:
         version: v1
     spec:
       containers:
-      - name: helidon-quickstart-mp
-        image: helidon-quickstart-mp
+      - envFrom:
+          - configMapRef:
+              name: hello-config
+              optional: true
+          - secretRef:
+              name: hello-secret
+              optional: true
+        name: helidon-quickstart-mp
+        image: gru.ocir.io/grwiwwxgzucj/hello-world:202111291711
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8080
+          - containerPort: 8080
+      imagePullSecrets:
+        - name: ocir
 ---

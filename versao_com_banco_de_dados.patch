@@ -1,0 +1,1757 @@
+Index: app.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app.yaml b/app.yaml
+--- a/app.yaml	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/app.yaml	(date 1638217306138)
+@@ -21,7 +21,7 @@
+   labels:
+     app: helidon-quickstart-mp
+ spec:
+-  type: NodePort
++  type: LoadBalancer
+   selector:
+     app: helidon-quickstart-mp
+   ports:
+@@ -29,12 +29,31 @@
+     targetPort: 8080
+     name: http
+ ---
++apiVersion: v1
++data:
++  javax.sql.DataSource.helloDataSource.dataSource.url: "jdbc:postgresql://banco-hello-postgresql:5432/hello"
++  javax.sql.DataSource.helloDataSource.dataSource.user: "postgres"
++kind: ConfigMap
++metadata:
++  name: hello-config
++---
++apiVersion: v1
++data:
++  javax.sql.DataSource.helloDataSource.dataSource.password: cG9zdGdyZXMK
++kind: Secret
++metadata:
++  name: hello-secret
++type: Opaque
++---
+ kind: Deployment
+-apiVersion: extensions/v1beta1
++apiVersion: apps/v1
+ metadata:
+   name: helidon-quickstart-mp
+ spec:
+   replicas: 1
++  selector:
++    matchLabels:
++      app: helidon-quickstart-mp
+   template:
+     metadata:
+       labels:
+@@ -42,9 +61,18 @@
+         version: v1
+     spec:
+       containers:
+-      - name: helidon-quickstart-mp
+-        image: helidon-quickstart-mp
++      - envFrom:
++          - configMapRef:
++              name: hello-config
++              optional: true
++          - secretRef:
++              name: hello-secret
++              optional: true
++        name: helidon-quickstart-mp
++        image: gru.ocir.io/grwiwwxgzucj/hello-world:202111291711
+         imagePullPolicy: IfNotPresent
+         ports:
+-        - containerPort: 8080
++          - containerPort: 8080
++      imagePullSecrets:
++        - name: ocir
+ ---
+Index: files/docker-entrypoint-initdb.d/init.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/files/docker-entrypoint-initdb.d/init.sql b/files/docker-entrypoint-initdb.d/init.sql
+new file mode 100644
+--- /dev/null	(date 1638211359485)
++++ b/files/docker-entrypoint-initdb.d/init.sql	(date 1638211359485)
+@@ -0,0 +1,17 @@
++create table users (
++    id bigint not null,
++    name character varying(255) not null
++);
++
++CREATE SEQUENCE users_id_seq
++    START WITH 1
++    INCREMENT BY 1
++    NO MINVALUE
++    NO MAXVALUE
++    CACHE 1;
++
++insert into users (id, name) values (1, 'Leonardo');
++insert into users (id, name) values (2, 'Rafael');
++insert into users (id, name) values (3, 'Otávio');
++
++SELECT pg_catalog.setval('users_id_seq', 3, true);
+\ No newline at end of file
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/pom.xml	(date 1638277655998)
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!--
+ 
+-    Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
++    Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+ 
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+@@ -23,26 +23,97 @@
+     <modelVersion>4.0.0</modelVersion>
+     <parent>
+         <groupId>io.helidon.applications</groupId>
+-        <artifactId>helidon-mp</artifactId>
++        <artifactId>helidon-applications-project</artifactId>
+         <version>1.4.10</version>
+-        <relativePath/>
+     </parent>
+     <groupId>io.helidon.examples</groupId>
+     <artifactId>helidon-quickstart-mp</artifactId>
+     <name>${project.artifactId}</name>
+ 
+     <properties>
++        <version.plugin.jandex>1.0.6</version.plugin.jandex>
++        <version.plugin.eclipselink>2.7.5.1</version.plugin.eclipselink>
+         <mainClass>io.helidon.examples.quickstart.mp.Main</mainClass>
+     </properties>
+ 
+     <dependencies>
++        <!-- Compile-scoped dependencies. -->
++        <dependency>
++            <groupId>javax.enterprise</groupId>
++            <artifactId>cdi-api</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>javax.ws.rs</groupId>
++            <artifactId>javax.ws.rs-api</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>javax.inject</groupId>
++            <artifactId>javax.inject</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>javax.annotation</groupId>
++            <artifactId>javax.annotation-api</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.eclipse.microprofile.config</groupId>
++            <artifactId>microprofile-config-api</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.glassfish.jersey.media</groupId>
++            <artifactId>jersey-media-json-binding</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>io.helidon.microprofile.server</groupId>
++            <artifactId>helidon-microprofile-server</artifactId>
++            <scope>compile</scope>
++        </dependency>
++        <!-- Runtime-scoped dependencies. -->
+         <dependency>
+             <groupId>io.helidon.microprofile.bundles</groupId>
+             <artifactId>helidon-microprofile</artifactId>
++            <scope>runtime</scope>
+         </dependency>
+         <dependency>
+-            <groupId>org.glassfish.jersey.media</groupId>
+-            <artifactId>jersey-media-json-binding</artifactId>
++            <groupId>org.postgresql</groupId>
++            <artifactId>postgresql</artifactId>
++            <version>42.2.10</version>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.jboss.weld.se</groupId>
++            <artifactId>weld-se-core</artifactId>
++            <scope>runtime</scope>
++            <exclusions>
++                <exclusion>
++                    <groupId>org.jboss.spec.javax.el</groupId>
++                    <artifactId>jboss-el-api_3.0_spec</artifactId>
++                </exclusion>
++                <exclusion>
++                    <groupId>org.jboss.spec.javax.interceptor</groupId>
++                    <artifactId>jboss-interceptors-api_1.2_spec</artifactId>
++                </exclusion>
++            </exclusions>
++        </dependency>
++        <dependency>
++            <groupId>io.helidon.integrations.cdi</groupId>
++            <artifactId>helidon-integrations-cdi-eclipselink</artifactId>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
++            <groupId>io.helidon.integrations.cdi</groupId>
++            <artifactId>helidon-integrations-cdi-jta-weld</artifactId>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
++            <groupId>io.helidon.integrations.cdi</groupId>
++            <artifactId>helidon-integrations-cdi-datasource-hikaricp</artifactId>
++            <scope>runtime</scope>
+         </dependency>
+         <dependency>
+             <groupId>org.jboss</groupId>
+@@ -51,10 +122,31 @@
+             <optional>true</optional>
+         </dependency>
+         <dependency>
++            <groupId>io.helidon.microprofile.config</groupId>
++            <artifactId>helidon-microprofile-config-cdi</artifactId>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
++            <groupId>io.helidon.integrations.cdi</groupId>
++            <artifactId>helidon-integrations-cdi-jpa</artifactId>
++            <scope>runtime</scope>
++        </dependency>
++        <dependency>
+             <groupId>javax.activation</groupId>
+             <artifactId>javax.activation-api</artifactId>
+-            <scope>runtime</scope>
++        </dependency>
++        <!-- Provided-scoped dependencies. -->
++        <dependency>
++            <groupId>jakarta.persistence</groupId>
++            <artifactId>jakarta.persistence-api</artifactId>
++            <scope>provided</scope>
++        </dependency>
++        <dependency>
++            <groupId>javax.transaction</groupId>
++            <artifactId>javax.transaction-api</artifactId>
++            <scope>provided</scope>
+         </dependency>
++        <!-- test -->
+         <dependency>
+             <groupId>org.junit.jupiter</groupId>
+             <artifactId>junit-jupiter-api</artifactId>
+@@ -76,11 +168,33 @@
+             <plugin>
+                 <groupId>org.jboss.jandex</groupId>
+                 <artifactId>jandex-maven-plugin</artifactId>
++                <version>${version.plugin.jandex}</version>
+                 <executions>
+                     <execution>
+                         <id>make-index</id>
++                        <goals>
++                            <goal>jandex</goal>
++                        </goals>
++                        <phase>process-classes</phase>
+                     </execution>
+                 </executions>
++            </plugin>
++            <plugin>
++                <groupId>com.ethlo.persistence.tools</groupId>
++                <artifactId>eclipselink-maven-plugin</artifactId>
++                <version>${version.plugin.eclipselink}</version>
++                <dependencies>
++                    <dependency>
++                        <groupId>javax.annotation</groupId>
++                        <artifactId>javax.annotation-api</artifactId>
++                        <version>${version.lib.annotation-api}</version>
++                    </dependency>
++                    <dependency>
++                        <groupId>javax.xml.bind</groupId>
++                        <artifactId>jaxb-api</artifactId>
++                        <version>${version.lib.jaxb-api}</version>
++                    </dependency>
++                </dependencies>
+             </plugin>
+         </plugins>
+     </build>
+Index: src/main/resources/application.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/application.yaml b/src/main/resources/application.yaml
+new file mode 100644
+--- /dev/null	(date 1638215764299)
++++ b/src/main/resources/application.yaml	(date 1638215764299)
+@@ -0,0 +1,11 @@
++server:
++  port: 8080
++javax:
++  sql:
++    DataSource:
++      helloDataSource:
++        dataSourceClassName: org.postgresql.ds.PGSimpleDataSource
++        dataSource:
++          url: jdbc:postgresql://localhost:5432/hello
++          user: postgres
++          password: postgres
+\ No newline at end of file
+Index: src/main/resources/META-INF/persistence.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/META-INF/persistence.xml b/src/main/resources/META-INF/persistence.xml
+new file mode 100644
+--- /dev/null	(date 1638275336872)
++++ b/src/main/resources/META-INF/persistence.xml	(date 1638275336872)
+@@ -0,0 +1,32 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<persistence version="2.2"
++             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
++             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
++                                 http://xmlns.jcp.org/xml/ns/persistence/persistence_2_2.xsd">
++    <persistence-unit name="helloPU" transaction-type="JTA">
++        <jta-data-source>helloDataSource</jta-data-source>
++        <class>io.helidon.examples.quickstart.mp.User</class>
++        <properties>
++            <property name="eclipselink.ddl-generation" value="none"/>
++            <property name="eclipselink.deploy-on-startup" value="true"/>
++            <property name="eclipselink.jdbc.native-sql" value="true"/>
++            <property name="eclipselink.logging.logger" value="JavaLogger"/>
++            <property name="eclipselink.logging.parameters" value="true"/>
++            <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.PostgreSQLPlatform"/>
++
++            <property name="eclipselink.target-server" value="io.helidon.integrations.cdi.eclipselink.CDISEPlatform"/>
++            <!--
++                Hibernate doesn't need a property here; the presence of a
++                JTAPlatform CDI bean will be enough.
++            -->
++
++            <property name="eclipselink.weaving" value="false"/>
++            <!--
++                Hibernate weaving is disabled by default so there is no
++                property to set here; see
++                https://github.com/hibernate/hibernate-orm/blob/5.3.7/documentation/src/main/asciidoc/userguide/chapters/pc/BytecodeEnhancement.adoc#runtime-enhancement
++            -->
++        </properties>
++    </persistence-unit>
++</persistence>
+\ No newline at end of file
+Index: src/main/java/io/helidon/examples/quickstart/mp/User.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/io/helidon/examples/quickstart/mp/User.java b/src/main/java/io/helidon/examples/quickstart/mp/User.java
+new file mode 100644
+--- /dev/null	(date 1638214582110)
++++ b/src/main/java/io/helidon/examples/quickstart/mp/User.java	(date 1638214582110)
+@@ -0,0 +1,32 @@
++package io.helidon.examples.quickstart.mp;
++
++import javax.persistence.*;
++import java.io.Serializable;
++
++@Entity
++@Table(name = "users")
++public class User implements Serializable {
++    @Id
++    @Column(name = "id")
++    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "users_id_seq")
++    @SequenceGenerator(name = "users_id_seq", sequenceName = "users_id_seq", allocationSize=1)
++    private String id;
++    @Column(name = "name")
++    private String name;
++
++    public String getId() {
++        return id;
++    }
++
++    public void setId(String id) {
++        this.id = id;
++    }
++
++    public String getName() {
++        return name;
++    }
++
++    public void setName(String name) {
++        this.name = name;
++    }
++}
+Index: src/main/resources/META-INF/native-image/reflect-config.json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/META-INF/native-image/reflect-config.json b/src/main/resources/META-INF/native-image/reflect-config.json
+new file mode 100644
+--- /dev/null	(date 1637585796832)
++++ b/src/main/resources/META-INF/native-image/reflect-config.json	(date 1637585796832)
+@@ -0,0 +1,1 @@
++[]
+Index: src/main/java/io/helidon/examples/quickstart/mp/UserRepository.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/io/helidon/examples/quickstart/mp/UserRepository.java b/src/main/java/io/helidon/examples/quickstart/mp/UserRepository.java
+new file mode 100644
+--- /dev/null	(date 1638275240363)
++++ b/src/main/java/io/helidon/examples/quickstart/mp/UserRepository.java	(date 1638275240363)
+@@ -0,0 +1,16 @@
++package io.helidon.examples.quickstart.mp;
++
++import javax.enterprise.context.ApplicationScoped;
++import javax.persistence.EntityManager;
++import javax.persistence.PersistenceContext;
++import java.util.List;
++
++@ApplicationScoped
++public class UserRepository {
++    @PersistenceContext
++    EntityManager entityManager;
++
++    public List<User> all(){
++        return entityManager.createQuery("select u from User u", User.class).getResultList();
++    }
++}
+Index: README.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/README.md b/README.md
+--- a/README.md	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/README.md	(date 1637861048270)
+@@ -1,167 +1,33 @@
+-# Criar conta na Oracle Cloud
+-https://www.oracle.com/cloud/free/
+-Start for free
+-
+-# Conhecendo a plataforma
+-* Overview
+-* O que iremos precisar?
+-* Compute -> Instances
+-* Developer Services -> Kubernetes Clusters (OKE)
+-* Developer Services -> Container Registry
+-* Developer Services -> DevOps -> Projects
+-* Developer Services -> Application Integration -> Notifications
+-* Identity & Security -> Users
+-* Identity & Security -> Dynamic Groups
+-* Identity & Security -> Compartments
+-
+-## Instalando a ferramenta oci e kubectl
+-
+-* https://docs.oracle.com/pt-br/iaas/Content/API/SDKDocs/cliinstall.htm
+-* https://kubernetes.io/docs/tasks/tools/
++# Helidon Quickstart MP Example
+ 
+-## Criar usuário para o laboratório
++This example implements a simple Hello World REST service using MicroProfile.
+ 
+-* Grupo OCI_Administrators
+-* API Keys
+-* Token Auth
++## Build and run
+ 
+-## Criar compartimento e anotar o OCID
+-
+-## Criar cluster kubernetes
+-
+-## Criar container registry
+-
+-## Criar tópico para receber notificações
+-
+-### Adicionar notificação por email
+-
+-## Criar projeto DevOps
+-
+-### Habilitar log
+-
+-### Criar repositório de código
+-
+-#### clonar repositório
+-
+-git config --global user.email "you@example.com"
+-git config --global user.name "Your Name"
+-git clone <repositório>
+-usuário: tenancy/oracleidentitycloudservice/user
+-senha: <Auth Token>
+-
+-#### criar projeto helidon
+-
+-```
+-mvn "-U" "archetype:generate" "-DinteractiveMode=false" "-DarchetypeGroupId=io.helidon.archetypes" "-DarchetypeArtifactId=helidon-quickstart-mp" "-DarchetypeVersion=1.4.10" "-DgroupId=io.helidon.examples" "-DartifactId=helidon-quickstart-mp" "-Dpackage=io.helidon.examples.quickstart.mp"
+-cd helidon-quickstart-mp
+-git add .
+-git commit -m "commit inicial"
+-git push
+-```
+-
+-#### configurar o projeto para a pipeline
+-
+-Criar secret
+-```
+-kubectl create secret docker-registry ocir --docker-server=gru.ocir.io --docker-username=$NAMESPACE/oracleidentitycloudservice/$USER --docker-password="$TOKEN" --docker-email=$EMAIL
+-```
+-
+-modificar o app.yaml
+-
+-adicionar o pull secret
+-```
+-      imagePullSecrets:
+-        - name: ocir
++With JDK8+
++```bash
++mvn package
++java -jar target/helidon-quickstart-mp.jar
+ ```
+ 
+-apontar para a imagem do repositório
+-```
+-        image: gru.ocir.io/grwiwwxgzucj/hello-world:latest 
+-```
++## Exercise the application
+ 
+-modificar o service de ClusterIP para LoadBalancer
+ ```
+-  type: LoadBalancer 
+-```
+-
+-modificar versão do deployment
+-```
+-apiVersion: apps/v1
+-```
+-
+-adicionar o arquivo build_spec.yaml
+-```
+-version: 0.1
+-component: build
+-timeoutInSeconds: 6000
+-shell: bash
+-env:
+-  exportedVariables:
+-    - BuildHelloWorldVersion
+-
+-steps:
+-  - type: Command
+-    name: "Build Source"
+-    timeoutInSeconds: 4000
+-    command: |
+-      mvn clean install
+-  - type: Command
+-    timeoutInSeconds: 400
+-    name: "Dockerizer"
+-    command: |
+-      BuildHelloWorldVersion=`echo ${OCI_BUILD_RUN_ID} | rev | cut -c 1-7`
+-      echo $BuildHelloWorldVersion
+-      docker build -t gru.ocir.io/grwiwwxgzucj/hello-world:latest .
+-
+-outputArtifacts:
+-  - name: hello-world
+-    type: DOCKER_IMAGE
+-    location: gru.ocir.io/grwiwwxgzucj/hello-world:latest
+-```
+-
+-## Criar grupo dinâmico <DeployDynamicGroup> para a pipeline
+-
+-Any {resource.type = 'devopsdeploypipeline', resource.compartment.id = 'ocid1.tenancy.oc1..***********************'}
+-
+-## Criar política de segurança para o grupo
+-
+-Allow dynamic-group DeployDynamicGroup to manage all-resources in compartment id ocid1.tenancy.oc1..******************
+-
+-## Criar build pipeline
+-
+-### Build
+-### Delivery
+-
+-stage name: delivery
+-
+-create artifact
+-- name: <nome>
+-- type: Container image repository
+-- artifact source: gru.ocir.io/<namespace>/<repo>:${app_version}
+-- replace parameters: Yes
+-
+-## Criar artefato (app.yaml)
+-
+-## Criar ambiente (enviroment)
+-
+-## Adicionar etapa de delivery na pipeline
+-
+-## Testar aplicação
+-
+-```
+-kubectl get service helidon-quickstart-mp
+-
+-curl -X GET http://<IP_EXTERNO>:8080/greet
++curl -X GET http://localhost:8080/greet
+ {"message":"Hello World!"}
+ 
+-curl -X GET http://<IP_EXTERNO>:8080/greet/Joe
++curl -X GET http://localhost:8080/greet/Joe
+ {"message":"Hello Joe!"}
+ 
+ curl -X PUT -H "Content-Type: application/json" -d '{"greeting" : "Hola"}' http://localhost:8080/greet/greeting
+ 
+-curl -X GET http://<IP_EXTERNO>:8080/greet/Jose
++curl -X GET http://localhost:8080/greet/Jose
+ {"message":"Hola Jose!"}
++```
+ 
++## Try health and metrics
++
++```
+ curl -s -X GET http://localhost:8080/health
+ {"outcome":"UP",...
+ . . .
+@@ -176,4 +42,27 @@
+ {"base":...
+ . . .
+ 
+-```
+\ No newline at end of file
++```
++
++## Build the Docker Image
++
++```
++docker build -t helidon-quickstart-mp .
++```
++
++## Start the application with Docker
++
++```
++docker run --rm -p 8080:8080 helidon-quickstart-mp:latest
++```
++
++Exercise the application as described above
++
++## Deploy the application to Kubernetes
++
++```
++kubectl cluster-info                         # Verify which cluster
++kubectl get pods                             # Verify connectivity to cluster
++kubectl create -f app.yaml               # Deploy application
++kubectl get service helidon-quickstart-mp  # Verify deployed service
++```
+Index: src/main/java/io/helidon/examples/quickstart/mp/GreetApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/io/helidon/examples/quickstart/mp/GreetApplication.java b/src/main/java/io/helidon/examples/quickstart/mp/GreetApplication.java
+--- a/src/main/java/io/helidon/examples/quickstart/mp/GreetApplication.java	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/src/main/java/io/helidon/examples/quickstart/mp/GreetApplication.java	(date 1638273690068)
+@@ -16,14 +16,14 @@
+ 
+ package io.helidon.examples.quickstart.mp;
+ 
++import java.util.Collections;
++import java.util.HashSet;
+ import java.util.Set;
+ 
+ import javax.enterprise.context.ApplicationScoped;
+ import javax.ws.rs.ApplicationPath;
+ import javax.ws.rs.core.Application;
+ 
+-import io.helidon.common.CollectionsHelper;
+-
+ /**
+  * Simple Application that produces a greeting message.
+  */
+@@ -33,6 +33,8 @@
+ 
+     @Override
+     public Set<Class<?>> getClasses() {
+-        return CollectionsHelper.setOf(GreetResource.class);
++        final Set<Class<?>> classes = new HashSet<>();
++        classes.add(GreetResource.class);
++        return Collections.unmodifiableSet(classes);
+     }
+ }
+Index: src/main/java/io/helidon/examples/quickstart/mp/Main.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/io/helidon/examples/quickstart/mp/Main.java b/src/main/java/io/helidon/examples/quickstart/mp/Main.java
+--- a/src/main/java/io/helidon/examples/quickstart/mp/Main.java	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/src/main/java/io/helidon/examples/quickstart/mp/Main.java	(date 1637861048153)
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2018, 2020 Oracle and/or its affiliates.
++ * Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -30,8 +30,7 @@
+     /**
+      * Cannot be instantiated.
+      */
+-    private Main() {
+-    }
++    private Main() { }
+ 
+     /**
+      * Application main entry point.
+Index: src/main/java/io/helidon/examples/quickstart/mp/GreetResource.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/io/helidon/examples/quickstart/mp/GreetResource.java b/src/main/java/io/helidon/examples/quickstart/mp/GreetResource.java
+--- a/src/main/java/io/helidon/examples/quickstart/mp/GreetResource.java	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/src/main/java/io/helidon/examples/quickstart/mp/GreetResource.java	(date 1638214843956)
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2018, 2020 Oracle and/or its affiliates.
++ * Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -17,6 +17,7 @@
+ package io.helidon.examples.quickstart.mp;
+ 
+ import java.util.Collections;
++import java.util.stream.Collectors;
+ 
+ import javax.enterprise.context.RequestScoped;
+ import javax.inject.Inject;
+@@ -32,12 +33,7 @@
+ import javax.ws.rs.core.MediaType;
+ import javax.ws.rs.core.Response;
+ 
+-import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+-import org.eclipse.microprofile.openapi.annotations.media.Content;
+-import org.eclipse.microprofile.openapi.annotations.media.Schema;
+-import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
+-import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+-import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
++import static javax.ws.rs.core.Response.ok;
+ 
+ /**
+  * A simple JAX-RS resource to greet you. Examples:
+@@ -63,16 +59,19 @@
+      * The greeting message provider.
+      */
+     private final GreetingProvider greetingProvider;
++    private final UserRepository userRepository;
+ 
+     /**
+      * Using constructor injection to get a configuration property.
+      * By default this gets the value from META-INF/microprofile-config
+      *
+      * @param greetingConfig the configured greeting message
++     * @param userRepository
+      */
+     @Inject
+-    public GreetResource(GreetingProvider greetingConfig) {
++    public GreetResource(GreetingProvider greetingConfig, UserRepository userRepository) {
+         this.greetingProvider = greetingConfig;
++        this.userRepository = userRepository;
+     }
+ 
+     /**
+@@ -112,14 +111,6 @@
+     @PUT
+     @Consumes(MediaType.APPLICATION_JSON)
+     @Produces(MediaType.APPLICATION_JSON)
+-    @RequestBody(name = "greeting",
+-            required = true,
+-            content = @Content(mediaType = "application/json",
+-                    schema = @Schema(type = SchemaType.STRING, example = "{\"greeting\" : \"Hola\"}")))
+-    @APIResponses({
+-            @APIResponse(name = "normal", responseCode = "204", description = "Greeting updated"),
+-            @APIResponse(name = "missing 'greeting'", responseCode = "400",
+-                    description = "JSON did not contain setting for 'greeting'")})
+     public Response updateGreeting(JsonObject jsonObject) {
+ 
+         if (!jsonObject.containsKey("greeting")) {
+@@ -136,10 +127,19 @@
+     }
+ 
+     private JsonObject createResponse(String who) {
+-        String msg = String.format("%s %s!", greetingProvider.getMessage(), who);
++        String msg = String.format("%s, %s!", greetingProvider.getMessage(), who);
+ 
+         return JSON.createObjectBuilder()
+                 .add("message", msg)
+                 .build();
+     }
++
++    @GET
++    @Path("/all")
++    @Produces(MediaType.APPLICATION_JSON)
++    public Response getAllAirports() {
++        return ok(userRepository.all().stream()
++                .map(u -> createResponse(u.getName()))
++                .collect(Collectors.toList())).build();
++    }
+ }
+Index: values.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/values.yaml b/values.yaml
+new file mode 100644
+--- /dev/null	(date 1638211366344)
++++ b/values.yaml	(date 1638211366344)
+@@ -0,0 +1,835 @@
++## Global Docker image parameters
++## Please, note that this will override the image parameters, including dependencies, configured to use the global value
++## Current available global Docker image parameters: imageRegistry and imagePullSecrets
++##
++global:
++  postgresql: {}
++#   imageRegistry: myRegistryName
++#   imagePullSecrets:
++#     - myRegistryKeySecretName
++#   storageClass: myStorageClass
++
++## Bitnami PostgreSQL image version
++## ref: https://hub.docker.com/r/bitnami/postgresql/tags/
++##
++image:
++  registry: docker.io
++  repository: bitnami/postgresql
++  tag: 12
++  ## Specify a imagePullPolicy
++  ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
++  ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
++  ##
++  pullPolicy: IfNotPresent
++  ## Optionally specify an array of imagePullSecrets.
++  ## Secrets must be manually created in the namespace.
++  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
++  ##
++  # pullSecrets:
++  #   - myRegistryKeySecretName
++
++  ## Set to true if you would like to see extra information on logs
++  ## It turns BASH and NAMI debugging in minideb
++  ## ref:  https://github.com/bitnami/minideb-extras/#turn-on-bash-debugging
++  ##
++  debug: false
++
++## String to partially override common.names.fullname template (will maintain the release name)
++##
++# nameOverride:
++
++## String to fully override common.names.fullname template
++##
++# fullnameOverride:
++
++##
++## Init containers parameters:
++## volumePermissions: Change the owner of the persist volume mountpoint to RunAsUser:fsGroup
++##
++volumePermissions:
++  enabled: false
++  image:
++    registry: docker.io
++    repository: bitnami/minideb
++    tag: buster
++    ## Specify a imagePullPolicy
++    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
++    ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
++    ##
++    pullPolicy: IfNotPresent
++    ## Optionally specify an array of imagePullSecrets.
++    ## Secrets must be manually created in the namespace.
++    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
++    ##
++    # pullSecrets:
++    #   - myRegistryKeySecretName
++  ## Init container Security Context
++  ## Note: the chown of the data folder is done to securityContext.runAsUser
++  ## and not the below volumePermissions.securityContext.runAsUser
++  ## When runAsUser is set to special value "auto", init container will try to chwon the
++  ## data folder to autodetermined user&group, using commands: `id -u`:`id -G | cut -d" " -f2`
++  ## "auto" is especially useful for OpenShift which has scc with dynamic userids (and 0 is not allowed).
++  ## You may want to use this volumePermissions.securityContext.runAsUser="auto" in combination with
++  ## pod securityContext.enabled=false and shmVolume.chmod.enabled=false
++  ##
++  securityContext:
++    runAsUser: 0
++
++## Use an alternate scheduler, e.g. "stork".
++## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
++##
++# schedulerName:
++
++## Pod Security Context
++## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
++##
++securityContext:
++  enabled: true
++  fsGroup: 1001
++
++## Container Security Context
++## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
++##
++containerSecurityContext:
++  enabled: true
++  runAsUser: 1001
++
++## Pod Service Account
++## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
++##
++serviceAccount:
++  enabled: false
++  ## Name of an already existing service account. Setting this value disables the automatic service account creation.
++  # name:
++
++## Pod Security Policy
++## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
++##
++psp:
++  create: false
++
++## Creates role for ServiceAccount
++## Required for PSP
++##
++rbac:
++  create: false
++
++replication:
++  enabled: false
++  user: repl_user
++  password: repl_password
++  readReplicas: 1
++  ## Set synchronous commit mode: on, off, remote_apply, remote_write and local
++  ## ref: https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-WAL-LEVEL
++  synchronousCommit: 'off'
++  ## From the number of `readReplicas` defined above, set the number of those that will have synchronous replication
++  ## NOTE: It cannot be > readReplicas
++  numSynchronousReplicas: 0
++  ## Replication Cluster application name. Useful for defining multiple replication policies
++  ##
++  applicationName: my_application
++
++## PostgreSQL admin password (used when `postgresqlUsername` is not `postgres`)
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md#creating-a-database-user-on-first-run (see note!)
++# postgresqlPostgresPassword:
++
++## PostgreSQL user (has superuser privileges if username is `postgres`)
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md#setting-the-root-password-on-first-run
++##
++postgresqlUsername: postgres
++
++## PostgreSQL password
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md#setting-the-root-password-on-first-run
++##
++postgresqlPassword: "postgres"
++
++## PostgreSQL password using existing secret
++## existingSecret: secret
++##
++
++## Mount PostgreSQL secret as a file instead of passing environment variable
++# usePasswordFile: false
++
++## Create a database
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md#creating-a-database-on-first-run
++##
++postgresqlDatabase: hello
++
++## PostgreSQL data dir
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md
++##
++postgresqlDataDir: /bitnami/postgresql/data
++
++## An array to add extra environment variables
++## For example:
++## extraEnv:
++##   - name: FOO
++##     value: "bar"
++##
++# extraEnv:
++extraEnv: []
++
++## Name of a ConfigMap containing extra env vars
++##
++# extraEnvVarsCM:
++
++## Specify extra initdb args
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md
++##
++# postgresqlInitdbArgs:
++
++## Specify a custom location for the PostgreSQL transaction log
++## ref: https://github.com/bitnami/bitnami-docker-postgresql/blob/master/README.md
++##
++# postgresqlInitdbWalDir:
++
++## PostgreSQL configuration
++## Specify runtime configuration parameters as a dict, using camelCase, e.g.
++## {"sharedBuffers": "500MB"}
++## Alternatively, you can put your postgresql.conf under the files/ directory
++## ref: https://www.postgresql.org/docs/current/static/runtime-config.html
++##
++# postgresqlConfiguration:
++
++## PostgreSQL extended configuration
++## As above, but _appended_ to the main configuration
++## Alternatively, you can put your *.conf under the files/conf.d/ directory
++## https://github.com/bitnami/bitnami-docker-postgresql#allow-settings-to-be-loaded-from-files-other-than-the-default-postgresqlconf
++##
++# postgresqlExtendedConf:
++
++## Configure current cluster's primary server to be the standby server in other cluster.
++## This will allow cross cluster replication and provide cross cluster high availability.
++## You will need to configure pgHbaConfiguration if you want to enable this feature with local cluster replication enabled.
++##
++primaryAsStandBy:
++  enabled: false
++  #  primaryHost:
++  #  primaryPort:
++
++## PostgreSQL client authentication configuration
++## Specify content for pg_hba.conf
++## Default: do not create pg_hba.conf
++## Alternatively, you can put your pg_hba.conf under the files/ directory
++# pgHbaConfiguration: |-
++#   local all all trust
++#   host all all localhost trust
++#   host mydatabase mysuser 192.168.0.0/24 md5
++
++## ConfigMap with PostgreSQL configuration
++## NOTE: This will override postgresqlConfiguration and pgHbaConfiguration
++# configurationConfigMap:
++
++## ConfigMap with PostgreSQL extended configuration
++# extendedConfConfigMap:
++
++## initdb scripts
++## Specify dictionary of scripts to be run at first boot
++## Alternatively, you can put your scripts under the files/docker-entrypoint-initdb.d directory
++##
++initdbScripts:
++#   my_init_script.sh: |
++#      #!/bin/sh
++#      echo "Do something."
++  init.sql: |
++    create table users (
++        id bigint not null,
++        name character varying(255) not null
++    );
++
++    CREATE SEQUENCE users_id_seq
++        START WITH 1
++        INCREMENT BY 1
++        NO MINVALUE
++        NO MAXVALUE
++        CACHE 1;
++
++    insert into users (id, name) values (1, 'Leonardo');
++    insert into users (id, name) values (2, 'Rafael');
++    insert into users (id, name) values (3, 'Otávio');
++
++    SELECT pg_catalog.setval('users_id_seq', 3, true);
++
++## ConfigMap with scripts to be run at first boot
++## NOTE: This will override initdbScripts
++# initdbScriptsConfigMap:
++
++## Secret with scripts to be run at first boot (in case it contains sensitive information)
++## NOTE: This can work along initdbScripts or initdbScriptsConfigMap
++# initdbScriptsSecret:
++
++## Specify the PostgreSQL username and password to execute the initdb scripts
++# initdbUser:
++# initdbPassword:
++
++## Audit settings
++## https://github.com/bitnami/bitnami-docker-postgresql#auditing
++##
++audit:
++  ## Log client hostnames
++  ##
++  logHostname: false
++  ## Log connections to the server
++  ##
++  logConnections: false
++  ## Log disconnections
++  ##
++  logDisconnections: false
++  ## Operation to audit using pgAudit (default if not set)
++  ##
++  pgAuditLog: ""
++  ## Log catalog using pgAudit
++  ##
++  pgAuditLogCatalog: "off"
++  ## Log level for clients
++  ##
++  clientMinMessages: error
++  ## Template for log line prefix (default if not set)
++  ##
++  logLinePrefix: ""
++  ## Log timezone
++  ##
++  logTimezone: ""
++
++## Shared preload libraries
++##
++postgresqlSharedPreloadLibraries: "pgaudit"
++
++## Maximum total connections
++##
++postgresqlMaxConnections: 200
++
++## Maximum connections for the postgres user
++##
++postgresqlPostgresConnectionLimit: 10
++
++## Maximum connections for the created user
++##
++postgresqlDbUserConnectionLimit:
++
++## TCP keepalives interval
++##
++postgresqlTcpKeepalivesInterval:
++
++## TCP keepalives idle
++##
++postgresqlTcpKeepalivesIdle:
++
++## TCP keepalives count
++##
++postgresqlTcpKeepalivesCount:
++
++## Statement timeout
++##
++postgresqlStatementTimeout:
++
++## Remove pg_hba.conf lines with the following comma-separated patterns
++## (cannot be used with custom pg_hba.conf)
++##
++postgresqlPghbaRemoveFilters:
++
++## Optional duration in seconds the pod needs to terminate gracefully.
++## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
++##
++# terminationGracePeriodSeconds: 30
++
++## LDAP configuration
++##
++ldap:
++  enabled: false
++  url: ''
++  server: ''
++  port: ''
++  prefix: ''
++  suffix: ''
++  baseDN: ''
++  bindDN: ''
++  bind_password:
++  search_attr: ''
++  search_filter: ''
++  scheme: ''
++  tls: {}
++
++## PostgreSQL service configuration
++##
++service:
++  ## PosgresSQL service type
++  ##
++  type: NodePort
++  # clusterIP: None
++  port: 5432
++
++  ## Specify the nodePort value for the LoadBalancer and NodePort service types.
++  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
++  ##
++  # nodePort:
++
++  ## Provide any additional annotations which may be required. Evaluated as a template.
++  ##
++  annotations: {}
++  ## Set the LoadBalancer service type to internal only.
++  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
++  ##
++  # loadBalancerIP:
++  ## Load Balancer sources. Evaluated as a template.
++  ## https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
++  ##
++  # loadBalancerSourceRanges:
++  # - 10.10.10.0/24
++
++## Start primary and read(s) pod(s) without limitations on shm memory.
++## By default docker and containerd (and possibly other container runtimes)
++## limit `/dev/shm` to `64M` (see e.g. the
++## [docker issue](https://github.com/docker-library/postgres/issues/416) and the
++## [containerd issue](https://github.com/containerd/containerd/issues/3654),
++## which could be not enough if PostgreSQL uses parallel workers heavily.
++##
++shmVolume:
++  ## Set `shmVolume.enabled` to `true` to mount a new tmpfs volume to remove
++  ## this limitation.
++  ##
++  enabled: true
++  ## Set to `true` to `chmod 777 /dev/shm` on a initContainer.
++  ## This option is ignored if `volumePermissions.enabled` is `false`
++  ##
++  chmod:
++    enabled: true
++
++## PostgreSQL data Persistent Volume Storage Class
++## If defined, storageClassName: <storageClass>
++## If set to "-", storageClassName: "", which disables dynamic provisioning
++## If undefined (the default) or set to null, no storageClassName spec is
++##   set, choosing the default provisioner.  (gp2 on AWS, standard on
++##   GKE, AWS & OpenStack)
++##
++persistence:
++  enabled: true
++  ## A manually managed Persistent Volume and Claim
++  ## If defined, PVC must be created manually before volume will be bound
++  ## The value is evaluated as a template, so, for example, the name can depend on .Release or .Chart
++  ##
++  # existingClaim:
++
++  ## The path the volume will be mounted at, useful when using different
++  ## PostgreSQL images.
++  ##
++  mountPath: /bitnami/postgresql
++
++  ## The subdirectory of the volume to mount to, useful in dev environments
++  ## and one PV for multiple services.
++  ##
++  subPath: ''
++
++  # storageClass: "-"
++  accessModes:
++    - ReadWriteOnce
++  size: 1Gi
++  annotations: {}
++  ## selector can be used to match an existing PersistentVolume
++  ## selector:
++  ##   matchLabels:
++  ##     app: my-app
++  selector: {}
++
++## updateStrategy for PostgreSQL StatefulSet and its reads StatefulSets
++## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
++##
++updateStrategy:
++  type: RollingUpdate
++
++##
++## PostgreSQL Primary parameters
++##
++primary:
++  ## PostgreSQL Primary pod affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
++  ## Allowed values: soft, hard
++  ##
++  podAffinityPreset: ""
++
++  ## PostgreSQL Primary pod anti-affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
++  ## Allowed values: soft, hard
++  ##
++  podAntiAffinityPreset: soft
++
++  ## PostgreSQL Primary node affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
++  ## Allowed values: soft, hard
++  ##
++  nodeAffinityPreset:
++    ## Node affinity type
++    ## Allowed values: soft, hard
++    type: ""
++    ## Node label key to match
++    ## E.g.
++    ## key: "kubernetes.io/e2e-az-name"
++    ##
++    key: ""
++    ## Node label values to match
++    ## E.g.
++    ## values:
++    ##   - e2e-az1
++    ##   - e2e-az2
++    ##
++    values: []
++
++  ## Affinity for PostgreSQL primary pods assignment
++  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
++  ## Note: primary.podAffinityPreset, primary.podAntiAffinityPreset, and primary.nodeAffinityPreset will be ignored when it's set
++  ##
++  affinity: {}
++
++  ## Node labels for PostgreSQL primary pods assignment
++  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
++  ##
++  nodeSelector: {}
++
++  ## Tolerations for PostgreSQL primary pods assignment
++  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
++  ##
++  tolerations: []
++
++  labels: {}
++  annotations: {}
++  podLabels: {}
++  podAnnotations: {}
++  priorityClassName: ''
++  ## Extra init containers
++  ## Example
++  ##
++  ## extraInitContainers:
++  ##   - name: do-something
++  ##     image: busybox
++  ##     command: ['do', 'something']
++  ##
++  extraInitContainers: []
++
++  ## Additional PostgreSQL primary Volume mounts
++  ##
++  extraVolumeMounts: []
++  ## Additional PostgreSQL primary Volumes
++  ##
++  extraVolumes: []
++  ## Add sidecars to the pod
++  ##
++  ## For example:
++  ## sidecars:
++  ##   - name: your-image-name
++  ##     image: your-image
++  ##     imagePullPolicy: Always
++  ##     ports:
++  ##       - name: portname
++  ##         containerPort: 1234
++  ##
++  sidecars: []
++
++  ## Override the service configuration for primary
++  ##
++  service: {}
++  # type:
++  # nodePort:
++  # clusterIP:
++
++##
++## PostgreSQL read only replica parameters
++##
++readReplicas:
++  ## PostgreSQL read only pod affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
++  ## Allowed values: soft, hard
++  ##
++  podAffinityPreset: ""
++
++  ## PostgreSQL read only pod anti-affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
++  ## Allowed values: soft, hard
++  ##
++  podAntiAffinityPreset: soft
++
++  ## PostgreSQL read only node affinity preset
++  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
++  ## Allowed values: soft, hard
++  ##
++  nodeAffinityPreset:
++    ## Node affinity type
++    ## Allowed values: soft, hard
++    type: ""
++    ## Node label key to match
++    ## E.g.
++    ## key: "kubernetes.io/e2e-az-name"
++    ##
++    key: ""
++    ## Node label values to match
++    ## E.g.
++    ## values:
++    ##   - e2e-az1
++    ##   - e2e-az2
++    ##
++    values: []
++
++  ## Affinity for PostgreSQL read only pods assignment
++  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
++  ## Note: readReplicas.podAffinityPreset, readReplicas.podAntiAffinityPreset, and readReplicas.nodeAffinityPreset will be ignored when it's set
++  ##
++  affinity: {}
++
++  ## Node labels for PostgreSQL read only  pods assignment
++  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
++  ##
++  nodeSelector: {}
++
++  ## Tolerations for PostgreSQL read only  pods assignment
++  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
++  ##
++  tolerations: []
++  labels: {}
++  annotations: {}
++  podLabels: {}
++  podAnnotations: {}
++  priorityClassName: ''
++
++  ## Extra init containers
++  ## Example
++  ##
++  ## extraInitContainers:
++  ##   - name: do-something
++  ##     image: busybox
++  ##     command: ['do', 'something']
++  ##
++  extraInitContainers: []
++
++  ## Additional PostgreSQL read replicas Volume mounts
++  ##
++  extraVolumeMounts: []
++
++  ## Additional PostgreSQL read replicas Volumes
++  ##
++  extraVolumes: []
++
++  ## Add sidecars to the pod
++  ##
++  ## For example:
++  ## sidecars:
++  ##   - name: your-image-name
++  ##     image: your-image
++  ##     imagePullPolicy: Always
++  ##     ports:
++  ##       - name: portname
++  ##         containerPort: 1234
++  ##
++  sidecars: []
++
++  ## Override the service configuration for read
++  ##
++  service: {}
++  # type:
++  # nodePort:
++  # clusterIP:
++
++  ## Whether to enable PostgreSQL read replicas data Persistent
++  ##
++  persistence:
++    enabled: true
++    existingClaim: amei-postgres-backup
++
++
++  # Override the resource configuration for read replicas
++  resources: {}
++  # requests:
++  #   memory: 256Mi
++  #   cpu: 250m
++
++## Configure resource requests and limits
++## ref: http://kubernetes.io/docs/user-guide/compute-resources/
++##
++resources:
++  requests:
++    memory: 256Mi
++    cpu: 250m
++
++## Add annotations to all the deployed resources
++##
++commonAnnotations: {}
++
++networkPolicy:
++  ## Enable creation of NetworkPolicy resources. Only Ingress traffic is filtered for now.
++  ##
++  enabled: false
++
++  ## The Policy model to apply. When set to false, only pods with the correct
++  ## client label will have network access to the port PostgreSQL is listening
++  ## on. When true, PostgreSQL will accept connections from any source
++  ## (with the correct destination port).
++  ##
++  allowExternal: true
++
++  ## if explicitNamespacesSelector is missing or set to {}, only client Pods that are in the networkPolicy's namespace
++  ## and that match other criteria, the ones that have the good label, can reach the DB.
++  ## But sometimes, we want the DB to be accessible to clients from other namespaces, in this case, we can use this
++  ## LabelSelector to select these namespaces, note that the networkPolicy's namespace should also be explicitly added.
++  ##
++  ## Example:
++  ## explicitNamespacesSelector:
++  ##   matchLabels:
++  ##     role: frontend
++  ##   matchExpressions:
++  ##    - {key: role, operator: In, values: [frontend]}
++  ##
++  explicitNamespacesSelector: {}
++
++## Configure extra options for liveness and readiness probes
++## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes)
++##
++livenessProbe:
++  enabled: true
++  initialDelaySeconds: 30
++  periodSeconds: 10
++  timeoutSeconds: 5
++  failureThreshold: 6
++  successThreshold: 1
++
++readinessProbe:
++  enabled: true
++  initialDelaySeconds: 5
++  periodSeconds: 10
++  timeoutSeconds: 5
++  failureThreshold: 6
++  successThreshold: 1
++
++## Custom Liveness probe
++##
++customLivenessProbe: {}
++
++## Custom Rediness probe
++##
++customReadinessProbe: {}
++
++##
++## TLS configuration
++##
++tls:
++  # Enable TLS traffic
++  enabled: false
++  #
++  # Whether to use the server's TLS cipher preferences rather than the client's.
++  preferServerCiphers: true
++  #
++  # Name of the Secret that contains the certificates
++  certificatesSecret: ''
++  #
++  # Certificate filename
++  certFilename: ''
++  #
++  # Certificate Key filename
++  certKeyFilename: ''
++  #
++  # CA Certificate filename
++  # If provided, PostgreSQL will authenticate TLS/SSL clients by requesting them a certificate
++  # ref: https://www.postgresql.org/docs/9.6/auth-methods.html
++  certCAFilename:
++  #
++  # File containing a Certificate Revocation List
++  crlFilename:
++
++## Configure metrics exporter
++##
++metrics:
++  enabled: false
++  # resources: {}
++  service:
++    type: ClusterIP
++    annotations:
++      prometheus.io/scrape: 'true'
++      prometheus.io/port: '9187'
++    loadBalancerIP:
++  serviceMonitor:
++    enabled: false
++    additionalLabels: 
++      prometheus: k8s
++      role: alert-rules
++    # namespace: monitoring
++    interval: 30s
++    scrapeTimeout: 10s
++  ## Custom PrometheusRule to be defined
++  ## The value is evaluated as a template, so, for example, the value can depend on .Release or .Chart
++  ## ref: https://github.com/coreos/prometheus-operator#customresourcedefinitions
++  ##
++  prometheusRule:
++    enabled: false
++    additionalLabels: {}
++    namespace: ''
++    ## These are just examples rules, please adapt them to your needs.
++    ## Make sure to constraint the rules to the current postgresql service.
++    ## rules:
++    ##   - alert: HugeReplicationLag
++    ##     expr: pg_replication_lag{service="{{ template "common.names.fullname" . }}-metrics"} / 3600 > 1
++    ##     for: 1m
++    ##     labels:
++    ##       severity: critical
++    ##     annotations:
++    ##       description: replication for {{ template "common.names.fullname" . }} PostgreSQL is lagging by {{ "{{ $value }}" }} hour(s).
++    ##       summary: PostgreSQL replication is lagging by {{ "{{ $value }}" }} hour(s).
++    ##
++    rules: []
++
++  image:
++    registry: docker.io
++    repository: bitnami/postgres-exporter
++    tag: 0.8.0-debian-10-r328
++    pullPolicy: IfNotPresent
++    ## Optionally specify an array of imagePullSecrets.
++    ## Secrets must be manually created in the namespace.
++    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
++    ##
++    # pullSecrets:
++    #   - myRegistryKeySecretName
++  ## Define additional custom metrics
++  ## ref: https://github.com/wrouesnel/postgres_exporter#adding-new-metrics-via-a-config-file
++  # customMetrics:
++  #   pg_database:
++  #     query: "SELECT d.datname AS name, CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT') THEN pg_catalog.pg_database_size(d.datname) ELSE 0 END AS size_bytes FROM pg_catalog.pg_database d where datname not in ('template0', 'template1', 'postgres')"
++  #     metrics:
++  #       - name:
++  #           usage: "LABEL"
++  #           description: "Name of the database"
++  #       - size_bytes:
++  #           usage: "GAUGE"
++  #           description: "Size of the database in bytes"
++  #
++  ## An array to add extra env vars to configure postgres-exporter
++  ## see: https://github.com/wrouesnel/postgres_exporter#environment-variables
++  ## For example:
++  #  extraEnvVars:
++  #  - name: PG_EXPORTER_DISABLE_DEFAULT_METRICS
++  #    value: "true"
++  extraEnvVars: {}
++
++  ## Pod Security Context
++  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
++  ##
++  securityContext:
++    enabled: false
++    runAsUser: 1001
++  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes)
++  ## Configure extra options for liveness and readiness probes
++  ##
++  livenessProbe:
++    enabled: true
++    initialDelaySeconds: 5
++    periodSeconds: 10
++    timeoutSeconds: 5
++    failureThreshold: 6
++    successThreshold: 1
++
++  readinessProbe:
++    enabled: true
++    initialDelaySeconds: 5
++    periodSeconds: 10
++    timeoutSeconds: 5
++    failureThreshold: 6
++    successThreshold: 1
++
++## Array with extra yaml to deploy with the chart. Evaluated as a template
++##
++extraDeploy: []
+Index: Dockerfile
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Dockerfile b/Dockerfile
+--- a/Dockerfile	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/Dockerfile	(date 1637862505434)
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (c) 2018, 2020 Oracle and/or its affiliates.
++# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -15,7 +15,7 @@
+ #
+ 
+ # 1st stage, build the app
+-FROM maven:3.6-jdk-11 as build
++FROM maven:3.5.2-jdk-8 as build
+ 
+ WORKDIR /helidon
+ 
+Index: build_spec.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build_spec.yaml b/build_spec.yaml
+new file mode 100644
+--- /dev/null	(date 1638295503137)
++++ b/build_spec.yaml	(date 1638295503137)
+@@ -0,0 +1,26 @@
++version: 0.1
++component: build
++timeoutInSeconds: 6000
++shell: bash
++env:
++  exportedVariables:
++    - app_version
++
++steps:
++  - type: Command
++    name: "Build Source"
++    timeoutInSeconds: 4000
++    command: |
++      mvn clean install
++  - type: Command
++    timeoutInSeconds: 400
++    name: "Dockerizer"
++    command: |
++      app_version=`echo ${OCI_BUILD_RUN_ID} | rev | cut -c 1-7`
++      echo $app_version
++      docker build -t gru.ocir.io/grwiwwxgzucj/teste:latest .
++
++outputArtifacts:
++  - name: hello-world
++    type: DOCKER_IMAGE
++    location: gru.ocir.io/grwiwwxgzucj/teste:latest
+\ No newline at end of file
+Index: .gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/.gitignore	(date 1638313441305)
+@@ -1,2 +1,3 @@
+ /.idea/
+ /helidon-quickstart-mp.iml
++/target/
+Index: src/test/java/io/helidon/examples/quickstart/mp/MainTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/io/helidon/examples/quickstart/mp/MainTest.java b/src/test/java/io/helidon/examples/quickstart/mp/MainTest.java
+--- a/src/test/java/io/helidon/examples/quickstart/mp/MainTest.java	(revision 5e52bc721b4e29835bc0eb9004ab8af9f0a952c7)
++++ b/src/test/java/io/helidon/examples/quickstart/mp/MainTest.java	(date 1638221326649)
+@@ -48,14 +48,14 @@
+                 .target(getConnectionString("/greet"))
+                 .request()
+                 .get(JsonObject.class);
+-        Assertions.assertEquals("Hello World!", jsonObject.getString("message"),
++        Assertions.assertEquals("Hello, World!", jsonObject.getString("message"),
+                 "default message");
+ 
+         jsonObject = client
+                 .target(getConnectionString("/greet/Joe"))
+                 .request()
+                 .get(JsonObject.class);
+-        Assertions.assertEquals("Hello Joe!", jsonObject.getString("message"),
++        Assertions.assertEquals("Hello, Joe!", jsonObject.getString("message"),
+                 "hello Joe message");
+ 
+         Response r = client
+@@ -68,7 +68,7 @@
+                 .target(getConnectionString("/greet/Jose"))
+                 .request()
+                 .get(JsonObject.class);
+-        Assertions.assertEquals("Hola Jose!", jsonObject.getString("message"),
++        Assertions.assertEquals("Hola, Jose!", jsonObject.getString("message"),
+                 "hola Jose message");
+ 
+         r = client

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="2.2"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                                 http://xmlns.jcp.org/xml/ns/persistence/persistence_2_2.xsd">
+    <persistence-unit name="helloPU" transaction-type="JTA">
+        <jta-data-source>helloDataSource</jta-data-source>
+        <class>io.helidon.examples.quickstart.mp.User</class>
+        <properties>
+            <property name="eclipselink.ddl-generation" value="none"/>
+            <property name="eclipselink.deploy-on-startup" value="true"/>
+            <property name="eclipselink.jdbc.native-sql" value="true"/>
+            <property name="eclipselink.logging.logger" value="JavaLogger"/>
+            <property name="eclipselink.logging.parameters" value="true"/>
+            <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.PostgreSQLPlatform"/>
+
+            <property name="eclipselink.target-server" value="io.helidon.integrations.cdi.eclipselink.CDISEPlatform"/>
+            <!--
+                Hibernate doesn't need a property here; the presence of a
+                JTAPlatform CDI bean will be enough.
+            -->
+
+            <property name="eclipselink.weaving" value="false"/>
+            <!--
+                Hibernate weaving is disabled by default so there is no
+                property to set here; see
+                https://github.com/hibernate/hibernate-orm/blob/5.3.7/documentation/src/main/asciidoc/userguide/chapters/pc/BytecodeEnhancement.adoc#runtime-enhancement
+            -->
+        </properties>
+    </persistence-unit>
+</persistence>
