@@ -133,11 +133,12 @@ Allow dynamic-group DeployDynamicGroup to manage all-resources in compartment id
 ### Delivery
  
  stage name: delivery
+ 
  create artifact
-  name: <nome>
-  type: Container image repository
-  artifact source: gru.ocir.io/<namespace>/<repo>:${app_version}
-  replace parameters: Yes
+ - name: <nome>
+ - type: Container image repository
+ - artifact source: gru.ocir.io/<namespace>/<repo>:${app_version}
+ - replace parameters: Yes
  
 ## Criar artefato (app.yaml)
  
