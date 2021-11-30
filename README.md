@@ -3,44 +3,44 @@ https://www.oracle.com/cloud/free/
 Start for free
 
 # Conhecendo a plataforma
-  * Overview
-  * O que iremos precisar?
-  * Compute -> Instances
-  * Developer Services -> Kubernetes Clusters (OKE)
-  * Developer Services -> Container Registry
-  * Developer Services -> DevOps -> Projects
-  * Developer Services -> Application Integration -> Notifications
-  * Identity & Security -> Users
-  * Identity & Security -> Dynamic Groups
-  * Identity & Security -> Compartments
+* Overview
+* O que iremos precisar?
+* Compute -> Instances
+* Developer Services -> Kubernetes Clusters (OKE)
+* Developer Services -> Container Registry
+* Developer Services -> DevOps -> Projects
+* Developer Services -> Application Integration -> Notifications
+* Identity & Security -> Users
+* Identity & Security -> Dynamic Groups
+* Identity & Security -> Compartments
 
 ## Instalando a ferramenta oci e kubectl
 
- * https://docs.oracle.com/pt-br/iaas/Content/API/SDKDocs/cliinstall.htm
- * https://kubernetes.io/docs/tasks/tools/
+* https://docs.oracle.com/pt-br/iaas/Content/API/SDKDocs/cliinstall.htm
+* https://kubernetes.io/docs/tasks/tools/
 
 ## Criar usuário para o laboratório
 
- * Grupo OCI_Administrators
- * API Keys
- * Token Auth
+* Grupo OCI_Administrators
+* API Keys
+* Token Auth
 
 ## Criar compartimento e anotar o OCID
 
 ## Criar cluster kubernetes
- 
+
 ## Criar container registry
- 
+
 ## Criar tópico para receber notificações
 
 ### Adicionar notificação por email
- 
+
 ## Criar projeto DevOps
 
 ### Habilitar log
- 
+
 ### Criar repositório de código
- 
+
 #### clonar repositório
 
 git config --global user.email "you@example.com"
@@ -48,9 +48,9 @@ git config --global user.name "Your Name"
 git clone <repositório>
 usuário: tenancy/oracleidentitycloudservice/user
 senha: <Auth Token>
- 
+
 #### criar projeto helidon
- 
+
 ```
 mvn "-U" "archetype:generate" "-DinteractiveMode=false" "-DarchetypeGroupId=io.helidon.archetypes" "-DarchetypeArtifactId=helidon-quickstart-mp" "-DarchetypeVersion=1.4.10" "-DgroupId=io.helidon.examples" "-DartifactId=helidon-quickstart-mp" "-Dpackage=io.helidon.examples.quickstart.mp"
 cd helidon-quickstart-mp
@@ -58,14 +58,14 @@ git add .
 git commit -m "commit inicial"
 git push
 ```
- 
+
 #### configurar o projeto para a pipeline
 
 Criar secret
 ```
 kubectl create secret docker-registry ocir --docker-server=gru.ocir.io --docker-username=$NAMESPACE/oracleidentitycloudservice/$USER --docker-password="$TOKEN" --docker-email=$EMAIL
 ```
- 
+
 modificar o app.yaml
 
 adicionar o pull secret
@@ -78,7 +78,7 @@ apontar para a imagem do repositório
 ```
         image: gru.ocir.io/grwiwwxgzucj/hello-world:latest 
 ```
- 
+
 modificar o service de ClusterIP para LoadBalancer
 ```
   type: LoadBalancer 
@@ -118,7 +118,7 @@ outputArtifacts:
     type: DOCKER_IMAGE
     location: gru.ocir.io/grwiwwxgzucj/hello-world:latest
 ```
- 
+
 ## Criar grupo dinâmico <DeployDynamicGroup> para a pipeline
 
 Any {resource.type = 'devopsdeploypipeline', resource.compartment.id = 'ocid1.tenancy.oc1..***********************'}
@@ -126,22 +126,54 @@ Any {resource.type = 'devopsdeploypipeline', resource.compartment.id = 'ocid1.te
 ## Criar política de segurança para o grupo
 
 Allow dynamic-group DeployDynamicGroup to manage all-resources in compartment id ocid1.tenancy.oc1..******************
- 
+
 ## Criar build pipeline
- 
+
 ### Build
 ### Delivery
- 
- stage name: delivery
- 
- create artifact
- - name: <nome>
- - type: Container image repository
- - artifact source: gru.ocir.io/<namespace>/<repo>:${app_version}
- - replace parameters: Yes
- 
+
+stage name: delivery
+
+create artifact
+- name: <nome>
+- type: Container image repository
+- artifact source: gru.ocir.io/<namespace>/<repo>:${app_version}
+- replace parameters: Yes
+
 ## Criar artefato (app.yaml)
- 
+
 ## Criar ambiente (enviroment)
- 
+
 ## Adicionar etapa de delivery na pipeline
+
+## Testar aplicação
+
+```
+kubectl get service helidon-quickstart-mp
+
+curl -X GET http://<IP_EXTERNO>:8080/greet
+{"message":"Hello World!"}
+
+curl -X GET http://<IP_EXTERNO>:8080/greet/Joe
+{"message":"Hello Joe!"}
+
+curl -X PUT -H "Content-Type: application/json" -d '{"greeting" : "Hola"}' http://localhost:8080/greet/greeting
+
+curl -X GET http://<IP_EXTERNO>:8080/greet/Jose
+{"message":"Hola Jose!"}
+
+curl -s -X GET http://localhost:8080/health
+{"outcome":"UP",...
+. . .
+
+# Prometheus Format
+curl -s -X GET http://localhost:8080/metrics
+# TYPE base:gc_g1_young_generation_count gauge
+. . .
+
+# JSON Format
+curl -H 'Accept: application/json' -X GET http://localhost:8080/metrics
+{"base":...
+. . .
+
+```
