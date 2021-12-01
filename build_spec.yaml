@@ -18,9 +18,9 @@ steps:
     command: |
       app_version=`echo ${OCI_BUILD_RUN_ID} | rev | cut -c 1-7`
       echo $app_version
-      docker build -t gru.ocir.io/grwiwwxgzucj/teste:latest .
+      docker build -t gru.ocir.io/grwiwwxgzucj/hello-world:latest .
 
 outputArtifacts:
   - name: hello-world
     type: DOCKER_IMAGE
-    location: gru.ocir.io/grwiwwxgzucj/teste:latest
+    location: gru.ocir.io/grwiwwxgzucj/hello-world:latest
